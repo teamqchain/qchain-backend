@@ -10,6 +10,7 @@ package main
 // submit (write) chaincode transactions.
 
 import (
+	"crypto/mldsa"
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
@@ -119,7 +120,7 @@ func getContract(orgName, identityName string) (*client.Contract, *client.Gatewa
 		return nil, nil, nil, fmt.Errorf("parsing private key: %w", err)
 	}
 
-	sign, err := identity.NewPrivateKeySign(privateKey)
+	sign, err := newSign(privateKey)
 	if err != nil {
 		conn.Close()
 		return nil, nil, nil, fmt.Errorf("creating signer: %w", err)
@@ -141,6 +142,21 @@ func getContract(orgName, identityName string) (*client.Contract, *client.Gatewa
 	network := gw.GetNetwork(channelName)
 	contract := network.GetContract(chaincodeName)
 	return contract, gw, conn, nil
+}
+
+// newSign returns the Gateway signing function for privateKey. fabric-gateway's
+// identity.NewPrivateKeySign only supports ECDSA and Ed25519, so ML-DSA keys get
+// their own signer. The Gateway hashes each message with its default SHA-256
+// before calling sign, and the Fabric MSP verifies ML-DSA signatures over that
+// SHA-256 digest (msp/identities.go), so the signer must sign the digest as
+// given: pure ML-DSA, empty context.
+func newSign(privateKey any) (identity.Sign, error) {
+	if key, ok := privateKey.(*mldsa.PrivateKey); ok {
+		return func(digest []byte) ([]byte, error) {
+			return key.Sign(nil, digest, nil)
+		}, nil
+	}
+	return identity.NewPrivateKeySign(privateKey)
 }
 
 // formatFabricError extracts the underlying gRPC endorsement error details
