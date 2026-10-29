@@ -1,6 +1,8 @@
 // mkwallet builds a Fabric wallet ".id" file (the JSON shape fabric.go's
-// loadWalletIdentity reads) from a cryptogen MSP directory: the signing
-// certificate in signcerts/ and the PKCS#8 private key in keystore/.
+// loadWalletIdentity reads) from an MSP directory, from cryptogen or
+// fabric-ca-client: the signing certificate in signcerts/ and the PKCS#8
+// private key in keystore/. Of the keystore's *_sk files, the one whose
+// public key matches the certificate is used.
 //
 // The key is checked against the certificate (public keys must match) but is
 // never printed. The .id file contains the private key and is written 0600.
@@ -20,6 +22,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type walletID struct {
@@ -42,11 +45,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	keyPEM, err := onlyFile(filepath.Join(mspDir, "keystore"))
+	keyPEM, err := matchingKey(filepath.Join(mspDir, "keystore"), certPEM)
 	if err != nil {
-		log.Fatal(err)
-	}
-	if err := checkKeyMatchesCert(certPEM, keyPEM); err != nil {
 		log.Fatal(err)
 	}
 
@@ -85,6 +85,42 @@ func onlyFile(dir string) ([]byte, error) {
 		return nil, fmt.Errorf("expected exactly one file in %s, found %d", dir, len(files))
 	}
 	return os.ReadFile(filepath.Join(dir, files[0]))
+}
+
+// matchingKey returns the private key in dir that matches certPEM. It looks
+// at every *_sk file, as a keystore can hold more than one key: fabric-ca
+// keeps the old key on reenroll. Exactly one file must match.
+func matchingKey(dir string, certPEM []byte) ([]byte, error) {
+	files, err := filepath.Glob(filepath.Join(dir, "*_sk"))
+	if err != nil {
+		return nil, err
+	}
+	if len(files) == 0 {
+		return nil, fmt.Errorf("no *_sk private key file in %s", dir)
+	}
+	var matches []string
+	var keyPEM []byte
+	var reasons []string
+	for _, f := range files {
+		data, err := os.ReadFile(f)
+		if err != nil {
+			return nil, err
+		}
+		if err := checkKeyMatchesCert(certPEM, data); err != nil {
+			reasons = append(reasons, fmt.Sprintf("%s: %v", filepath.Base(f), err))
+			continue
+		}
+		matches = append(matches, filepath.Base(f))
+		keyPEM = data
+	}
+	switch len(matches) {
+	case 1:
+		return keyPEM, nil
+	case 0:
+		return nil, fmt.Errorf("none of the %d *_sk files in %s matches the signing certificate (%s)", len(files), dir, strings.Join(reasons, "; "))
+	default:
+		return nil, fmt.Errorf("%d *_sk files in %s match the signing certificate (%s); keep one", len(matches), dir, strings.Join(matches, ", "))
+	}
 }
 
 func checkKeyMatchesCert(certPEM, keyPEM []byte) error {
