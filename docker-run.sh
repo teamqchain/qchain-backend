@@ -4,9 +4,14 @@
 # Requirements:
 #   - Docker image built: bash offchain/docker-build.sh
 #   - offchain/.env file present with all required vars
-#   - qchain-network/ directory present at NETWORK_ROOT
+#   - qchain-network-pqc/ directory present next to the repo (or NETWORK_DIR set)
 #
-# Usage: bash offchain/docker-run.sh
+# Usage: bash offchain/docker-run.sh [extra docker run args...]
+#
+# QCHAIN_API_NETWORK picks the container network (default: host). Docker Desktop's
+# host network is the Docker VM, not the WSL distro, so there use the Fabric
+# network instead, e.g. QCHAIN_API_NETWORK=qchainpqc_net; port 3000 is then
+# published on 127.0.0.1.
 
 set -euo pipefail
 
@@ -14,7 +19,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 ENV_FILE="$SCRIPT_DIR/.env"
-NETWORK_DIR="$REPO_ROOT/qchain-network"
+NETWORK_DIR="${NETWORK_DIR:-$(dirname "$REPO_ROOT")/qchain-network-pqc}"
+NETWORK_MODE="${QCHAIN_API_NETWORK:-host}"
 CONTAINER_NAME="qchain-api"
 IMAGE="qchain-api:latest"
 
@@ -45,13 +51,18 @@ fi
 # ── Start new container ─────────────────────────────────────────────────────
 echo "Starting $CONTAINER_NAME ..."
 
+PUBLISH=()
+[[ "$NETWORK_MODE" != host ]] && PUBLISH=(-p 127.0.0.1:3000:3000)
+
 docker run -d \
     --name "$CONTAINER_NAME" \
     --restart unless-stopped \
-    --network host \
+    --network "$NETWORK_MODE" \
+    "${PUBLISH[@]}" \
     -v "${NETWORK_DIR}:/qchain-network:ro" \
     --env-file "$ENV_FILE" \
     -e NETWORK_ROOT=/qchain-network \
+    "$@" \
     "$IMAGE"
 
 # --network host  → container shares the host network stack:

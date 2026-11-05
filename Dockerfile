@@ -53,7 +53,10 @@
 
 # Start with official Go image based on Debian Bookworm
 # "AS builder" names this stage so we can reference it later
-FROM golang:1.24-bookworm AS builder
+# Go 1.27 is required: go.mod says `go 1.27` and fabric.go imports crypto/mldsa.
+# Bookworm's OpenSSL 3.0 is fine: liboqs only uses EVP_DigestSqueeze when it is
+# compiled against OpenSSL >= 3.3, and here it is compiled and run on bookworm.
+FROM golang:1.27-bookworm AS builder
 
 # Install build tools needed to compile the liboqs C library
 # --no-install-recommends = don't install optional packages (smaller image)
@@ -69,10 +72,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Download and compile the liboqs library (Open Quantum Safe)
 # This is the C library that provides ML-DSA-44 (Dilithium) signatures
+# Pinned to 0.16.0-50-gb196b57aa, the liboqs the PQC Fabric builds were made with.
+ARG LIBOQS_COMMIT=b196b57aa615c84d62cbf6a59a8bfc294e6747dd
 WORKDIR /tmp
-RUN git clone --branch main --single-branch --depth 1 \
-    https://github.com/open-quantum-safe/liboqs.git \
-    && cd liboqs \
+RUN mkdir liboqs && cd liboqs \
+    && git init -q \
+    && git remote add origin https://github.com/open-quantum-safe/liboqs.git \
+    && git fetch -q --depth 1 origin "$LIBOQS_COMMIT" \
+    && git checkout -q FETCH_HEAD \
     && mkdir build && cd build \
     && cmake -GNinja \
         -DBUILD_SHARED_LIBS=ON \
@@ -88,7 +95,7 @@ RUN git clone --branch main --single-branch --depth 1 \
 RUN mkdir -p /usr/lib/pkgconfig && \
     printf "Name: liboqs-go\n\
 Description: Go bindings for liboqs\n\
-Version: 0.15.0\n\
+Version: 0.16.0\n\
 Cflags: -I/usr/local/include\n\
 Libs: -L/usr/local/lib -loqs\n" > /usr/lib/pkgconfig/liboqs-go.pc
 
