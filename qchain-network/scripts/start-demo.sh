@@ -1,14 +1,8 @@
 #!/usr/bin/env bash
-# PQC copy (qchain-network-pqc, 2026-10-31). Changes vs qchain-network (see CHANGES-PQC.md):
-#   - REPO_ROOT defaults to ~/QChain-PQC-blockchain (QCHAIN_REPO overrides): this copy is a sibling of
-#     qchain-network, not inside the QChain repo.
-#   - does NOT auto-start the API: offchain/docker-run.sh mounts $REPO_ROOT/qchain-network (the ORIGINAL
-#     network) and uses the backend's default peer ports; it prints the PQC settings instead.
-#   - Fabric checks use the qchainpqc_ container names; docker by explicit path.
 # One-command demo startup.
 # Run this whenever the VM reboots or you need to verify everything is up.
 #
-# Usage: bash qchain-network-pqc/scripts/start-demo.sh
+# Usage: bash qchain-network/scripts/start-demo.sh
 #
 # Checks / starts:
 #   1. IPFS daemon (via systemd user service)
@@ -21,9 +15,7 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="${QCHAIN_REPO:-$HOME/QChain-PQC-blockchain}"
-NETWORK_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-docker() { /usr/bin/docker "$@"; }
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 RED='\033[0;31m'
 GRN='\033[0;32m'
@@ -79,12 +71,20 @@ CONTAINER="qchain-api"
 if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER}$" 2>/dev/null; then
     ok "Container '$CONTAINER' is running."
 else
-    warn "Container '$CONTAINER' is not running — NOT starting it from the PQC copy."
-    echo "       $REPO_ROOT/offchain/docker-run.sh mounts \$REPO_ROOT/qchain-network (the original network)."
-    echo "       For the PQC network run the backend with (see README-PQC.md):"
-    echo "         NETWORK_ROOT -> $NETWORK_DIR (mounted at /qchain-network)"
-    echo "         GOV_PEER_ENDPOINT=peer0.government.uae.com:27051  GEN_PEER_ENDPOINT=peer0.general.uae.com:29051"
-    echo "         CHANNEL_NAME=mychannel  CHAINCODE_NAME=qchaincode"
+    warn "Container '$CONTAINER' is not running — starting ..."
+
+    if ! docker image inspect qchain-api:latest &>/dev/null; then
+        fail "Docker image 'qchain-api:latest' not found."
+        echo "       Build it first: bash offchain/docker-build.sh"
+    else
+        bash "$REPO_ROOT/offchain/docker-run.sh"
+        sleep 2
+        if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER}$"; then
+            ok "Container started."
+        else
+            fail "Container failed to start. Check: docker logs $CONTAINER"
+        fi
+    fi
 fi
 
 # Verify HTTP health

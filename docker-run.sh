@@ -4,7 +4,7 @@
 # Requirements:
 #   - Docker image built: bash offchain/docker-build.sh
 #   - offchain/.env file present with all required vars
-#   - the PQC network at ~/qchain-network-pqc (or NETWORK_DIR set)
+#   - the network's runtime files under qchain-network/ (or NETWORK_DIR set)
 #
 # Usage: bash offchain/docker-run.sh [extra docker run args...]
 #
@@ -19,7 +19,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 ENV_FILE="$SCRIPT_DIR/.env"
-NETWORK_DIR="${NETWORK_DIR:-$HOME/qchain-network-pqc}"
+NETWORK_DIR="${NETWORK_DIR:-$REPO_ROOT/qchain-network}"
 NETWORK_MODE="${QCHAIN_API_NETWORK:-host}"
 CONTAINER_NAME="qchain-api"
 IMAGE="qchain-api:latest"
