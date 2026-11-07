@@ -3,7 +3,7 @@
 # Run ONCE after the Fabric network is up and the Go server is running.
 #
 # Prerequisites:
-#   - Fabric network running (peer0.general.uae.com:9051 reachable)
+#   - Fabric network running (peer0.general.uae.com:29051 reachable)
 #   - Go server running on localhost:3000 with MYSQL_DSN set
 #   - MySQL schema already applied: mysql -u root -p < schema.sql
 #

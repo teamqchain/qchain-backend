@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS government_organization (
     org_id          VARCHAR(20)  PRIMARY KEY DEFAULT 'ORG-GOV-001',
     org_name        VARCHAR(100) NOT NULL DEFAULT 'Government of UAE',
     fabric_msp_id   VARCHAR(50)  NOT NULL DEFAULT 'GovernmentMSP',
-    peer_endpoint   VARCHAR(150) DEFAULT 'peer0.government.uae.com:7051',
+    peer_endpoint   VARCHAR(150) DEFAULT 'peer0.government.uae.com:27051',
     public_key      TEXT,
     is_active       BOOLEAN DEFAULT TRUE,
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS uos_organization (
     org_id            VARCHAR(20)  PRIMARY KEY DEFAULT 'ORG-UOS-001',
     org_name          VARCHAR(100) NOT NULL DEFAULT 'University of Sharjah',
     fabric_msp_id     VARCHAR(50)  NOT NULL DEFAULT 'GeneralMSP',
-    peer_endpoint     VARCHAR(150) DEFAULT 'peer0.general.uae.com:9051',
+    peer_endpoint     VARCHAR(150) DEFAULT 'peer0.general.uae.com:29051',
     public_key        TEXT,                                                         -- [NOW]  ML-DSA-44 hex public key
     signing_algorithm ENUM('dilithium','ecdsa') DEFAULT 'dilithium',               -- [LATER] settings page
     display_name      VARCHAR(200),                                                 -- [LATER] "University of Sharjah — Registrar Office"

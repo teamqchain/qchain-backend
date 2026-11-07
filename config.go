@@ -64,12 +64,12 @@ var (
 		MSPID        string
 	}{
 		"government": {
-			PeerEndpoint: getEnv("GOV_PEER_ENDPOINT", "peer0.government.uae.com:7051"),
+			PeerEndpoint: getEnv("GOV_PEER_ENDPOINT", "peer0.government.uae.com:27051"),
 			GatewayPeer:  getEnv("GOV_GATEWAY_PEER", "peer0.government.uae.com"),
 			MSPID:        "GovernmentMSP",
 		},
 		"general": {
-			PeerEndpoint: getEnv("GEN_PEER_ENDPOINT", "peer0.general.uae.com:9051"),
+			PeerEndpoint: getEnv("GEN_PEER_ENDPOINT", "peer0.general.uae.com:29051"),
 			GatewayPeer:  getEnv("GEN_GATEWAY_PEER", "peer0.general.uae.com"),
 			MSPID:        "GeneralMSP",
 		},
