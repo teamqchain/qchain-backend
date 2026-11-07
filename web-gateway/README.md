@@ -102,7 +102,7 @@ Then open in a browser: `https://<vm>.<tailnet>.ts.net/`
 ## Reboot test (resilience)
 
 Reboot the VM. With Docker enabled on boot (`sudo systemctl enable docker`), the
-backend and gateway containers come back (`--restart unless-stopped`), and
+Fabric network, backend and gateway containers come back (all `unless-stopped`), and
 `tailscaled` re-applies the Funnel — the link works again **unchanged**, with
 no manual steps.
 
@@ -130,7 +130,7 @@ no manual steps.
 
 | Symptom | Likely cause / fix |
 |---|---|
-| `/api/*` returns 502 | Backend not running on :3000. Run `start-demo.sh`. |
+| `/api/*` returns 502 | Backend not running on :3000, or the Fabric network is down. Run `start-demo.sh`, which checks both. |
 | Funnel command fails | Needs sudo, or HTTPS/Funnel not enabled for the node in the admin console, or a different CLI syntax — see the alternatives the script prints. |
 | Apps load but calls fail with the wrong host | Image built with the wrong `API_BASE_URL`. Re-run `docker-build.sh` with the correct value. |
 | Port 8090 in use | Another service grabbed it; stop it or change the port in `nginx.conf` + `setup-tailscale-funnel.sh`. |
