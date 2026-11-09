@@ -1,0 +1,182 @@
+package ledger
+
+// fabric.go — connecting to the Hyperledger Fabric blockchain.
+//
+// To talk to the ledger we must present a signed identity (an X.509 certificate
+// + private key) that belongs to one of the network's organizations. Those
+// identities live in the Fabric "wallet" as .id files. getContract loads an
+// identity, opens a mutually-authenticated TLS gRPC connection to that org's
+// peer, and hands back a Contract object the handlers use to evaluate (read) or
+// submit (write) chaincode transactions.
+
+import (
+	"crypto/mldsa"
+	"crypto/x509"
+	"encoding/json"
+	"encoding/pem"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/hyperledger/fabric-gateway/pkg/client"
+	"github.com/hyperledger/fabric-gateway/pkg/identity"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/status"
+
+	"github.com/teamqchain/qchain-backend/config"
+)
+
+// walletIDFile mirrors the JSON shape of a Fabric wallet ".id" file. The nested
+// `Credentials` field is an anonymous struct because it is only used here.
+type walletIDFile struct {
+	Credentials struct {
+		Certificate string `json:"certificate"`
+		PrivateKey  string `json:"privateKey"`
+	} `json:"credentials"`
+	MspID   string `json:"mspId"`
+	Type    string `json:"type"`
+	Version int    `json:"version"`
+}
+
+// loadWalletIdentity reads the certificate and private key PEM bytes for the
+// named identity (e.g. "issuer1") in the given org's wallet.
+func loadWalletIdentity(orgLC, identityName string) (certPEM, keyPEM []byte, err error) {
+	idFilePath := filepath.Join(config.WalletDir(orgLC), identityName+".id")
+	data, err := os.ReadFile(idFilePath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("wallet identity %q not found for org %q (expected at %s): %w",
+			identityName, orgLC, idFilePath, err)
+	}
+	var idFile walletIDFile
+	if err := json.Unmarshal(data, &idFile); err != nil {
+		return nil, nil, fmt.Errorf("parsing wallet .id file %s: %w", idFilePath, err)
+	}
+	if idFile.Credentials.Certificate == "" {
+		return nil, nil, fmt.Errorf("wallet .id file %s has no certificate", idFilePath)
+	}
+	if idFile.Credentials.PrivateKey == "" {
+		return nil, nil, fmt.Errorf("wallet .id file %s has no privateKey", idFilePath)
+	}
+	return []byte(idFile.Credentials.Certificate), []byte(idFile.Credentials.PrivateKey), nil
+}
+
+// getContract connects to a peer as the given org/identity and returns the
+// chaincode Contract plus the Gateway and gRPC connection. The caller is
+// responsible for closing the Gateway and connection (typically via `defer`).
+func getContract(orgName, identityName string) (*client.Contract, *client.Gateway, *grpc.ClientConn, error) {
+	orgLC := strings.ToLower(orgName)
+	cfg, ok := config.OrgConfig[orgLC]
+	if !ok {
+		return nil, nil, nil, fmt.Errorf("unknown org %q", orgName)
+	}
+
+	peerHostname := strings.Split(cfg.PeerEndpoint, ":")[0]
+	tlsCACertPath := filepath.Join(config.MspDir(orgLC), "peers", peerHostname, "tls", "ca.crt")
+	tlsCACert, err := os.ReadFile(tlsCACertPath)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("reading TLS CA cert at %s: %w", tlsCACertPath, err)
+	}
+	certPool := x509.NewCertPool()
+	certPool.AppendCertsFromPEM(tlsCACert)
+	tlsCreds := credentials.NewClientTLSFromCert(certPool, cfg.GatewayPeer)
+
+	// Batch reads (getCredentials/getHolders) can return several MB; gRPC's
+	// default 4 MB receive limit would reject them.
+	conn, err := grpc.Dial(cfg.PeerEndpoint,
+		grpc.WithTransportCredentials(tlsCreds),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(64<<20)),
+	)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("grpc dial to %s: %w", cfg.PeerEndpoint, err)
+	}
+
+	certPEM, keyPEM, err := loadWalletIdentity(orgLC, identityName)
+	if err != nil {
+		conn.Close()
+		return nil, nil, nil, err
+	}
+
+	block, _ := pem.Decode(certPEM)
+	if block == nil {
+		conn.Close()
+		return nil, nil, nil, fmt.Errorf("failed to PEM-decode certificate for identity %q", identityName)
+	}
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		conn.Close()
+		return nil, nil, nil, fmt.Errorf("parsing certificate: %w", err)
+	}
+
+	id, err := identity.NewX509Identity(cfg.MSPID, cert)
+	if err != nil {
+		conn.Close()
+		return nil, nil, nil, fmt.Errorf("creating X509 identity: %w", err)
+	}
+
+	privateKey, err := identity.PrivateKeyFromPEM(keyPEM)
+	if err != nil {
+		conn.Close()
+		return nil, nil, nil, fmt.Errorf("parsing private key: %w", err)
+	}
+
+	sign, err := newSign(privateKey)
+	if err != nil {
+		conn.Close()
+		return nil, nil, nil, fmt.Errorf("creating signer: %w", err)
+	}
+
+	gw, err := client.Connect(id,
+		client.WithSign(sign),
+		client.WithClientConnection(conn),
+		client.WithEvaluateTimeout(30*time.Second),
+		client.WithEndorseTimeout(30*time.Second),
+		client.WithSubmitTimeout(30*time.Second),
+		client.WithCommitStatusTimeout(60*time.Second),
+	)
+	if err != nil {
+		conn.Close()
+		return nil, nil, nil, fmt.Errorf("gateway connect: %w", err)
+	}
+
+	network := gw.GetNetwork(config.ChannelName)
+	contract := network.GetContract(config.ChaincodeName)
+	return contract, gw, conn, nil
+}
+
+// newSign returns the Gateway signing function for privateKey. fabric-gateway's
+// identity.NewPrivateKeySign only supports ECDSA and Ed25519, so ML-DSA keys get
+// their own signer. The Gateway hashes each message with its default SHA-256
+// before calling sign, and the Fabric MSP verifies ML-DSA signatures over that
+// SHA-256 digest (msp/identities.go), so the signer must sign the digest as
+// given: pure ML-DSA, empty context.
+func newSign(privateKey any) (identity.Sign, error) {
+	if key, ok := privateKey.(*mldsa.PrivateKey); ok {
+		return func(digest []byte) ([]byte, error) {
+			return key.Sign(nil, digest, nil)
+		}, nil
+	}
+	return identity.NewPrivateKeySign(privateKey)
+}
+
+// formatFabricError extracts the underlying gRPC endorsement error details
+// from a Fabric Gateway error, ensuring peer-level rejection causes are visible.
+func formatFabricError(err error) string {
+	if err == nil {
+		return ""
+	}
+	if s, ok := status.FromError(err); ok {
+		details := s.Details()
+		if len(details) > 0 {
+			var detailStrs []string
+			for _, d := range details {
+				detailStrs = append(detailStrs, fmt.Sprintf("%+v", d))
+			}
+			return fmt.Sprintf("%s: %s [details: %s]", s.Code(), s.Message(), strings.Join(detailStrs, " | "))
+		}
+		return fmt.Sprintf("%s: %s", s.Code(), s.Message())
+	}
+	return err.Error()
+}

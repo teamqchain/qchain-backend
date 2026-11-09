@@ -18,10 +18,13 @@ package main
 import (
 	"errors"
 	"log"
+
+	"github.com/teamqchain/qchain-backend/db"
+	"github.com/teamqchain/qchain-backend/ledger"
 )
 
 func runChainBootstrap() {
-	seeds, err := listHolderSeeds()
+	seeds, err := db.ListHolderSeeds()
 	if err != nil {
 		log.Fatalf("bootstrap: read holders from MySQL: %v", err)
 	}
@@ -29,21 +32,21 @@ func runChainBootstrap() {
 
 	var registered, bound, skipped, failed int
 	for _, s := range seeds {
-		holder, err := chainReadHolder(s.FabricHolderID, viewFull)
+		holder, err := ledger.ChainReadHolder(s.FabricHolderID, ledger.ViewFull)
 		switch {
-		case errors.Is(err, errChainNotFound):
+		case errors.Is(err, ledger.ErrChainNotFound):
 			if s.FirstName == "" || s.LastName == "" {
 				log.Printf("bootstrap: %s: skipped — MySQL has no first/last name to register", s.FabricHolderID)
 				failed++
 				continue
 			}
-			if _, err := chainSubmit("registerHolder", s.FabricHolderID, s.FirstName, s.LastName); err != nil {
+			if _, err := ledger.ChainSubmit("registerHolder", s.FabricHolderID, s.FirstName, s.LastName); err != nil {
 				log.Printf("bootstrap: %s: registerHolder failed: %v", s.FabricHolderID, err)
 				failed++
 				continue
 			}
 			registered++
-			holder = &ChainHolder{ID: s.FabricHolderID}
+			holder = &ledger.ChainHolder{ID: s.FabricHolderID}
 		case err != nil:
 			log.Fatalf("bootstrap: chain read for %s failed (is Fabric up?): %v", s.FabricHolderID, err)
 		}
@@ -56,7 +59,7 @@ func runChainBootstrap() {
 			skipped++
 			continue
 		}
-		if _, err := chainSubmit("bindHolderKeys", s.FabricHolderID, s.KemPublicKey, s.DsaPublicKey); err != nil {
+		if _, err := ledger.ChainSubmit("bindHolderKeys", s.FabricHolderID, s.KemPublicKey, s.DsaPublicKey); err != nil {
 			log.Printf("bootstrap: %s: bindHolderKeys failed: %v", s.FabricHolderID, err)
 			failed++
 			continue

@@ -1,4 +1,4 @@
-module github.com/qchain/go-bindings
+module github.com/teamqchain/qchain-backend
 
 go 1.27
 

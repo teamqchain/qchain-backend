@@ -11,7 +11,7 @@
 //
 // Usage:
 //
-//	go run offchain/cmd/keygen/main.go
+//	go run ./cmd/keygen
 package main
 
 import (
