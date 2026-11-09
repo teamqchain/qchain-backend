@@ -1,0 +1,25 @@
+# OS and editors
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Secrets and local settings. .env holds the issuer's ML-DSA-44 private key and
+# the MySQL DSN: never commit it. The template, .env.example, is committed.
+.env
+.env.*
+!.env.example
+
+# Go
+*.test
+*.out
+coverage.out
+
+# Logs
+*.log
+
+# VM runtime binaries and data (downloaded or produced on the VM, not for the repo)
+kubo/
+upload-results/
