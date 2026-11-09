@@ -16,7 +16,8 @@ on:
   push:
     branches: [main]
     paths:
-      - "**.go"
+      - "*.go"
+      - "**/*.go"
       - "go.mod"
       - "go.sum"
       - "docker/**"

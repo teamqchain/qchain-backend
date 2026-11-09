@@ -341,6 +341,15 @@ credential-related responses include a `credentialID`, and **all timestamps are 
 
 ---
 
+## Documentation
+
+- [Setup guide](https://github.com/teamqchain/qchain-docs/blob/main/docs/setup.md): the whole system from scratch (Fabric network, database, IPFS, this backend, the apps, CI/CD runner)
+- [gateway/README.md](gateway/README.md): the Nginx gateway and the Tailscale Funnel runbook
+- [qchain-network README](https://github.com/teamqchain/qchain-network#readme): the Fabric network this backend talks to: ports, identities, ledger reset
+- [qchain-docs](https://github.com/teamqchain/qchain-docs): the project's reports and the earlier benchmarks
+
+---
+
 ## Related repositories
 
 | Repository | What it holds |
