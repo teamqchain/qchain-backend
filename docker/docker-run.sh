@@ -2,11 +2,12 @@
 # Stop any existing qchain-api container and start a fresh one.
 #
 # Requirements:
-#   - Docker image built: bash offchain/docker-build.sh
-#   - offchain/.env file present with all required vars
-#   - the network's runtime files under qchain-network/ (or NETWORK_DIR set)
+#   - Docker image built: bash docker/docker-build.sh
+#   - .env at the repository root with all required vars (template: .env.example)
+#   - the network's runtime files in the qchain-network clone next to this
+#     repository (or NETWORK_DIR set to that folder)
 #
-# Usage: bash offchain/docker-run.sh [extra docker run args...]
+# Usage: bash docker/docker-run.sh [extra docker run args...]
 #
 # QCHAIN_API_NETWORK picks the container network (default: host). Docker Desktop's
 # host network is the Docker VM, not the WSL distro, so there use the Fabric
@@ -18,8 +19,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-ENV_FILE="$SCRIPT_DIR/.env"
-NETWORK_DIR="${NETWORK_DIR:-$REPO_ROOT/qchain-network}"
+ENV_FILE="$REPO_ROOT/.env"
+# The qchain-network repository is cloned next to this one (e.g. teamqchain/).
+NETWORK_DIR="${NETWORK_DIR:-$(dirname "$REPO_ROOT")/qchain-network}"
 NETWORK_MODE="${QCHAIN_API_NETWORK:-host}"
 CONTAINER_NAME="qchain-api"
 IMAGE="qchain-api:latest"
@@ -27,7 +29,7 @@ IMAGE="qchain-api:latest"
 # ── Preflight checks ────────────────────────────────────────────────────────
 if [[ ! -f "$ENV_FILE" ]]; then
     echo "ERROR: $ENV_FILE not found." >&2
-    echo "  Copy offchain/.env.example to offchain/.env and fill in the values." >&2
+    echo "  Copy .env.example to .env (repository root) and fill in the values." >&2
     exit 1
 fi
 
@@ -37,7 +39,7 @@ if [[ ! -d "$NETWORK_DIR" ]]; then
 fi
 
 if ! docker image inspect "$IMAGE" &>/dev/null; then
-    echo "ERROR: Docker image '$IMAGE' not found. Run: bash offchain/docker-build.sh" >&2
+    echo "ERROR: Docker image '$IMAGE' not found. Run: bash docker/docker-build.sh" >&2
     exit 1
 fi
 

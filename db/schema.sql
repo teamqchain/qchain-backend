@@ -396,9 +396,9 @@ INSERT IGNORE INTO verifiers (verifier_id, org_id, full_name, email, password_ha
 VALUES ('VER-UOS-0001', 'ORG-UOS-001', 'Verifier Portal', 'verifier@uos.ac.ae', '$2b$10$PLACEHOLDER_HASH', 'admin', 'active');
 
 -- No demo holder seed rows: holder_id is now always server-generated
--- (offchain/db.go nextHolderID), so a demo holder can't be pre-seeded by a
+-- (db/db.go nextHolderID), so a demo holder can't be pre-seeded by a
 -- fixed id — create one via POST /registerHolder instead (see
--- qchain-network/scripts/setup-demo.sh).
+-- scripts/setup-demo.sh).
 
 -- Demo staff (mirrors the seed issuer/verifier for the Manage-Staff UI)
 INSERT IGNORE INTO staff (id, name, email, portal, role, status, added_date) VALUES

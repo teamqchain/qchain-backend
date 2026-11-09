@@ -1,34 +1,29 @@
-# Auto-deploy the web-gateway (QPortal + Nginx) when QPortal code changes on main.
+# Auto-deploy the gateway (Nginx in front of the API) when gateway/ changes on main.
 #
 # Runs on the self-hosted runner on the VM (label: qchain-vm), from the VM's
-# own checkout, same as deploy-backend.yml. QWallet is mobile-only and is not
-# built here.
+# own checkout, same as deploy-backend.yml. QPortal is no longer built here: it
+# is hosted on Vercel, and the gateway's root (/) redirects to it.
 #
-# Flow: pull main → build (compiles QPortal) → restart → /gw-health + portal page.
+# Flow: pull main → build → restart → /gw-health + the / redirect.
 # If the new container is unhealthy, the previous image is restarted and the
 # run is marked failed. /api/ is deliberately not checked, so a backend outage
 # can't roll back a good gateway.
-#
-# Runner setup: docs/setup.md → "Continuous deployment (self-hosted runner)".
 
-name: Deploy web-gateway
+name: Deploy gateway
 
 on:
   push:
     branches: [main]
     paths:
-      - "UI_WebApp/**"
-      - "shared/**"
-      - "web-gateway/**"
-      - ".dockerignore"
-      - ".github/workflows/deploy-web-gateway.yml"
-      - "!**/*.md"
+      - "gateway/**"
+      - "!gateway/**/*.md"
+      - ".github/workflows/deploy-gateway.yml"
   workflow_dispatch:
 
 # Separate from the backend's group, so a queued backend deploy never
 # replaces a queued gateway deploy (or the other way round).
 concurrency:
-  group: deploy-web-gateway
+  group: deploy-gateway
   cancel-in-progress: false
 
 permissions:
@@ -41,14 +36,11 @@ defaults:
 jobs:
   deploy:
     runs-on: [self-hosted, qchain-vm]
-    timeout-minutes: 60
-    env:
-      # Baked into QPortal at build time. The Funnel URL never changes.
-      API_BASE_URL: https://qchain.tail4fff4b.ts.net/api
+    timeout-minutes: 30
     steps:
       - name: Sync the VM checkout to main
         run: |
-          REPO_ROOT="$HOME/Desktop/QChain/QChain-PQC-blockchain"
+          REPO_ROOT="$HOME/Desktop/QChain/teamqchain/qchain-backend"
           echo "REPO_ROOT=$REPO_ROOT" >> "$GITHUB_ENV"
           cd "$REPO_ROOT"
           BRANCH="$(git branch --show-current)"
@@ -78,22 +70,21 @@ jobs:
             echo "No qchain-web-gateway:latest yet (first deploy), nothing to roll back to"
           fi
 
-      # A failed build (including a QPortal compile error) stops here; the old
-      # container keeps running.
+      # A failed build stops here; the old container keeps running.
       - name: Build image
-        run: cd "$REPO_ROOT" && bash web-gateway/docker-build.sh
+        run: cd "$REPO_ROOT" && bash gateway/docker-build.sh
 
       - name: Restart container
         id: deploy
-        run: cd "$REPO_ROOT" && bash web-gateway/docker-run.sh
+        run: cd "$REPO_ROOT" && bash gateway/docker-run.sh
 
       - name: Health check
         id: health
         run: |
           for _ in $(seq 1 30); do
             if [[ "$(curl -sf -m 5 http://localhost:8090/gw-health || true)" == "ok" ]] \
-               && [[ "$(curl -sf -m 5 http://localhost:8090/ || true)" == *"<html"* ]]; then
-              echo "qchain-web-gateway is healthy and serving QPortal"
+               && [[ "$(curl -s -o /dev/null -m 5 -w '%{http_code}' http://localhost:8090/ || true)" == "302" ]]; then
+              echo "qchain-web-gateway is healthy and redirects / to QPortal"
               exit 0
             fi
             sleep 2
@@ -112,7 +103,7 @@ jobs:
             exit 1
           fi
           docker tag qchain-web-gateway:previous qchain-web-gateway:latest
-          cd "$REPO_ROOT" && bash web-gateway/docker-run.sh
+          cd "$REPO_ROOT" && bash gateway/docker-run.sh
           for _ in $(seq 1 30); do
             if [[ "$(curl -sf -m 5 http://localhost:8090/gw-health || true)" == "ok" ]]; then
               echo "::error::Deploy of ${GITHUB_SHA::7} failed. Rolled back to the previous image, which is healthy."

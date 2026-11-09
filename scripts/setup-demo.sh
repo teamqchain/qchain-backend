@@ -5,9 +5,9 @@
 # Prerequisites:
 #   - Fabric network running (peer0.general.uae.com:29051 reachable)
 #   - Go server running on localhost:3000 with MYSQL_DSN set
-#   - MySQL schema already applied: mysql -u root -p < schema.sql
+#   - MySQL schema already applied: mysql -u root -p < db/schema.sql
 #
-# Usage:  bash setup-demo.sh [server_url]
+# Usage:  bash scripts/setup-demo.sh [server_url]
 #   server_url defaults to http://localhost:3000
 
 set -euo pipefail
@@ -23,7 +23,7 @@ curl -sf "$SERVER/health" | grep -q '"ok"' || { echo "  ERROR: server not reacha
 echo "  Server is healthy."
 
 # ─── Register demo holders on Fabric ────────────────────────────────────────
-# holder_id is always server-generated (offchain/db.go nextHolderID) — this
+# holder_id is always server-generated (db/db.go nextHolderID) — this
 # call creates the holder (MySQL row + on-chain registration) in one step.
 # There's no pre-seeded row to target by id, so re-running this script mints
 # NEW duplicate demo holders rather than being a no-op — matches the

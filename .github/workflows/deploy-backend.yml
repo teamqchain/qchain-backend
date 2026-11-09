@@ -1,15 +1,14 @@
-# Auto-deploy the Go backend (qchain-api) when offchain/ changes on main.
+# Auto-deploy the Go backend (qchain-api) when its code changes on main.
 #
 # Runs on the self-hosted runner on the VM (label: qchain-vm). It deploys from
-# the VM's own checkout, not a runner checkout, because docker-run.sh needs the
-# gitignored runtime files that only exist there (offchain/.env, and the
-# crypto-material / wallet / connection profiles under qchain-network/).
+# the VM's own checkout, not a runner checkout, because docker/docker-run.sh
+# needs gitignored runtime files that only exist there: .env in this
+# repository, and the crypto material, wallets and connection profiles in the
+# qchain-network clone next to it (~/Desktop/QChain/teamqchain/qchain-network).
 #
 # Flow: pull main → go test (builder stage) → build → restart → /health.
 # If the new container is unhealthy, the previous image is restarted and the
 # run is marked failed. Chaincode and MySQL schema changes stay manual.
-#
-# Runner setup: docs/setup.md → "Continuous deployment (self-hosted runner)".
 
 name: Deploy backend
 
@@ -17,8 +16,11 @@ on:
   push:
     branches: [main]
     paths:
-      - "offchain/**"
-      - "!offchain/**/*.md"
+      - "**.go"
+      - "go.mod"
+      - "go.sum"
+      - "docker/**"
+      - ".dockerignore"
       - ".github/workflows/deploy-backend.yml"
   workflow_dispatch:
 
@@ -42,7 +44,7 @@ jobs:
     steps:
       - name: Sync the VM checkout to main
         run: |
-          REPO_ROOT="$HOME/Desktop/QChain/QChain-PQC-blockchain"
+          REPO_ROOT="$HOME/Desktop/QChain/teamqchain/qchain-backend"
           echo "REPO_ROOT=$REPO_ROOT" >> "$GITHUB_ENV"
           cd "$REPO_ROOT"
           BRANCH="$(git branch --show-current)"
@@ -67,7 +69,7 @@ jobs:
       - name: Unit tests (go test in the builder stage)
         run: |
           cd "$REPO_ROOT"
-          docker build --target builder -t qchain-api:ci-test offchain
+          docker build --target builder -f docker/Dockerfile -t qchain-api:ci-test .
           docker run --rm qchain-api:ci-test go test -count=1 ./...
 
       - name: Remove the test image
@@ -85,11 +87,11 @@ jobs:
 
       # A failed build also stops here; the old container keeps running.
       - name: Build image
-        run: cd "$REPO_ROOT" && bash offchain/docker-build.sh
+        run: cd "$REPO_ROOT" && bash docker/docker-build.sh
 
       - name: Restart container
         id: deploy
-        run: cd "$REPO_ROOT" && bash offchain/docker-run.sh
+        run: cd "$REPO_ROOT" && bash docker/docker-run.sh
 
       - name: Health check
         id: health
@@ -115,7 +117,7 @@ jobs:
             exit 1
           fi
           docker tag qchain-api:previous qchain-api:latest
-          cd "$REPO_ROOT" && bash offchain/docker-run.sh
+          cd "$REPO_ROOT" && bash docker/docker-run.sh
           for _ in $(seq 1 30); do
             if [[ "$(curl -sf -m 5 http://localhost:3000/health || true)" == *'"ok"'* ]]; then
               echo "::error::Deploy of ${GITHUB_SHA::7} failed. Rolled back to the previous image, which is healthy."

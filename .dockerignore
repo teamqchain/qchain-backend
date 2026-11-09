@@ -1,43 +1,36 @@
 # =============================================================================
-# DOCKERIGNORE - Go Bindings (liboqs)
+# .dockerignore for docker/Dockerfile (build context = the repository root)
 # =============================================================================
-#
-# ┌─────────────────────────────────────────────────────────────────────────┐
-# │  WHAT IS THIS FILE?                                                     │
-# ├─────────────────────────────────────────────────────────────────────────┤
-# │  Tells Docker which files to SKIP when copying code into the container.│
-# │  This makes builds faster and images smaller.                          │
-# └─────────────────────────────────────────────────────────────────────────┘
-#
+# The Dockerfile copies only the Go source folders (main package, api, config,
+# db, ledger, pqc, cmd) by name. This list keeps everything else out of the
+# build context, so the upload to the Docker daemon stays small and secrets
+# never reach it.
 # =============================================================================
 
-# -----------------------------------------------------------------------------
-# TEST DOCUMENTS - Mount these separately via docker-compose volumes
-# -----------------------------------------------------------------------------
-# We don't bake test PDFs into the image. Instead, we mount them at runtime.
-# This way you can easily swap test documents without rebuilding.
-*.pdf
-*.txt
+# Secrets and local settings: .env holds the issuer's ML-DSA-44 private key
+# and the MySQL DSN. It must never enter a build context.
+.env
+.env.*
 
-# -----------------------------------------------------------------------------
-# GIT - Version control (not needed for build)
-# -----------------------------------------------------------------------------
+# Version control and CI
 .git
 .gitignore
+.github
 
-# -----------------------------------------------------------------------------
-# DOCUMENTATION - Not needed for building
-# -----------------------------------------------------------------------------
-README.md
+# Not part of the API image
+docker/
+gateway/
+scripts/
+tests/
+db/schema.sql
 *.md
+LICENSE
 
-# -----------------------------------------------------------------------------
-# TEST BINARIES - Generated test executables
-# -----------------------------------------------------------------------------
+# Test binaries and coverage output
 *.test
+*.out
 
-# -----------------------------------------------------------------------------
-# IDE FILES - Editor settings
-# -----------------------------------------------------------------------------
+# Editors and OS
 .vscode/
 .idea/
+**/.DS_Store

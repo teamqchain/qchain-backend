@@ -1,5 +1,7 @@
 # =============================================================================
-# QCHAIN OFFCHAIN LIBOQS GO-BINDINGS DOCKERFILE
+# QCHAIN BACKEND (qchain-api) DOCKERFILE
+# Build from the repository root:  docker build -f docker/Dockerfile .
+# (docker/docker-build.sh does exactly that.)
 # =============================================================================
 #
 # ┌─────────────────────────────────────────────────────────────────────────┐
@@ -113,8 +115,15 @@ COPY go.mod go.sum ./
 # go mod tidy below will fetch any missing checksums.
 RUN go mod download || true
 
-# Copy our Go source code
+# Copy our Go source code: the main package at the root, its packages and the
+# tools in cmd/. Listed one by one, so nothing else (such as .env) can end up
+# in an image layer.
 COPY *.go ./
+COPY api/ ./api/
+COPY config/ ./config/
+COPY db/ ./db/
+COPY ledger/ ./ledger/
+COPY pqc/ ./pqc/
 COPY cmd/ ./cmd/
 
 # tidy adds any missing go.sum entries, then compile.

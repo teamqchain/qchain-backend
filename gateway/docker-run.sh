@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Stop any existing web-gateway container and start a fresh one.
+# Stop any existing gateway container and start a fresh one.
 #
 # Requirements:
-#   - Image built:  bash web-gateway/docker-build.sh
+#   - Image built:  bash gateway/docker-build.sh
 #   - The Go backend running on the host at port 3000 (so /api works)
 #
-# Usage: bash web-gateway/docker-run.sh
+# Usage: bash gateway/docker-run.sh
 
 set -euo pipefail
 
@@ -14,7 +14,7 @@ IMAGE="qchain-web-gateway:latest"
 
 # ── Preflight ────────────────────────────────────────────────────────────────
 if ! docker image inspect "$IMAGE" &>/dev/null; then
-    echo "ERROR: Docker image '$IMAGE' not found. Run: bash web-gateway/docker-build.sh" >&2
+    echo "ERROR: Docker image '$IMAGE' not found. Run: bash gateway/docker-build.sh" >&2
     exit 1
 fi
 
@@ -42,8 +42,8 @@ sleep 2
 STATUS=$(docker inspect --format '{{.State.Status}}' "$CONTAINER_NAME" 2>/dev/null || echo "unknown")
 echo ""
 echo "Container : $CONTAINER_NAME  ($STATUS)"
-echo "Listens   : http://localhost:8090   (portal /, api /api/)"
+echo "Listens   : http://localhost:8090   (api /api/, / redirects to QPortal)"
 echo "Health    : curl -s http://localhost:8090/gw-health   # → ok"
 echo "Logs      : docker logs -f $CONTAINER_NAME"
 echo ""
-echo "Next: expose it publicly with  bash qchain-network/scripts/setup-tailscale-funnel.sh"
+echo "Next: expose it publicly with  bash gateway/setup-tailscale-funnel.sh"

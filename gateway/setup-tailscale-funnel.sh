@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Run ONCE on the VM to expose the QChain web-gateway publicly via Tailscale
-# Funnel. After this, https://<vm>.<tailnet>.ts.net serves QPortal (/) and the
-# API (/api/). QWallet is mobile-only and isn't part of this gateway.
+# Run ONCE on the VM to expose the QChain gateway publicly via Tailscale
+# Funnel. After this, https://<vm>.<tailnet>.ts.net serves the API (/api/);
+# its root (/) redirects to QPortal, which is hosted on Vercel.
 #
 # Why this is "set and forget": the tailscaled system service keeps the tunnel
 # alive across crashes and reboots and re-applies this Funnel config on its own.
@@ -15,7 +15,7 @@
 #   • Funnel enabled for this node (node attributes / ACLs)
 # Funnel commands may need sudo unless `tailscale up --operator=$USER` was used.
 #
-# Usage: bash qchain-network/scripts/setup-tailscale-funnel.sh
+# Usage: bash gateway/setup-tailscale-funnel.sh
 
 set -uo pipefail
 
@@ -27,7 +27,7 @@ warn() { echo -e "  ${YLW}!${NC}  $*"; }
 fail() { echo -e "  ${RED}✗${NC}  $*"; }
 
 echo ""
-echo "=== Tailscale Funnel setup for the QChain web-gateway ==="
+echo "=== Tailscale Funnel setup for the QChain gateway ==="
 echo ""
 
 # ── 1. Is tailscale installed? ───────────────────────────────────────────────
@@ -47,10 +47,10 @@ ok "Tailscale is connected."
 
 # ── 3. Is the gateway actually listening locally? ────────────────────────────
 if curl -s "http://localhost:${GATEWAY_PORT}/gw-health" --max-time 3 | grep -q "ok" 2>/dev/null; then
-    ok "Web-gateway responding on localhost:${GATEWAY_PORT}"
+    ok "Gateway responding on localhost:${GATEWAY_PORT}"
 else
-    warn "Web-gateway not responding on localhost:${GATEWAY_PORT} yet."
-    warn "Start it first:  bash web-gateway/docker-build.sh && bash web-gateway/docker-run.sh"
+    warn "Gateway not responding on localhost:${GATEWAY_PORT} yet."
+    warn "Start it first:  bash gateway/docker-build.sh && bash gateway/docker-run.sh"
 fi
 
 # ── 4. Enable Funnel: public 443 → localhost:8090 ────────────────────────────

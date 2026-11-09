@@ -2,7 +2,7 @@
 # One-command demo startup.
 # Run this whenever the VM reboots or you need to verify everything is up.
 #
-# Usage: bash qchain-network/scripts/start-demo.sh
+# Usage: bash scripts/start-demo.sh
 #
 # Checks / starts:
 #   1. IPFS daemon (via systemd user service)
@@ -15,7 +15,7 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 RED='\033[0;31m'
 GRN='\033[0;32m'
@@ -75,9 +75,9 @@ else
 
     if ! docker image inspect qchain-api:latest &>/dev/null; then
         fail "Docker image 'qchain-api:latest' not found."
-        echo "       Build it first: bash offchain/docker-build.sh"
+        echo "       Build it first: bash docker/docker-build.sh"
     else
-        bash "$REPO_ROOT/offchain/docker-run.sh"
+        bash "$REPO_ROOT/docker/docker-run.sh"
         sleep 2
         if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER}$"; then
             ok "Container started."
