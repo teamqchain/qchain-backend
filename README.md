@@ -28,7 +28,7 @@ The API runs on our university VM and is reachable publicly through a Tailscale 
 |----------|-----------|------|
 | **API** | the REST API that QPortal and QWallet call | **https://qchain.tail4fff4b.ts.net/api** |
 | **Health** | liveness probe | **https://qchain.tail4fff4b.ts.net/api/health** → `{"status":"ok"}` |
-| **QPortal** | the web portal (the gateway's root redirects to it) | **https://qchain.tail4fff4b.ts.net/** → Vercel |
+| **QPortal** | the web portal, hosted on Vercel (the old address `https://qchain.tail4fff4b.ts.net/` redirects to it) | **https://qportal.vercel.app** |
 
 > ⚠️ **It's a live demo, not production.** It runs on a single shared VM, so it may be offline at times,
 > the demo database is shared by everyone, and the API has no caller authentication yet.
