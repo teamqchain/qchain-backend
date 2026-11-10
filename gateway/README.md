@@ -7,7 +7,7 @@ forwards `https://qchain.tail4fff4b.ts.net` to it on port 8090.
 |------|---------|
 | `/api/` | the Go backend on `localhost:3000` (the `/api` prefix is stripped: `/api/health` → `/health`) |
 | `/gw-health` | `ok`, the gateway's own health check |
-| `/` | a 302 redirect to QPortal on Vercel (`https://qchain-portal.vercel.app`), path kept |
+| `/` | a 302 redirect to QPortal on Vercel (`https://qportal.vercel.app`), path kept |
 
 QPortal used to be compiled into this image. Since November 2026 it is built and hosted by Vercel from the
 [qchain-portal](https://github.com/teamqchain/qchain-portal) repository; the redirect keeps old portal links working.
