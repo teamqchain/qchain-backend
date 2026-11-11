@@ -244,7 +244,7 @@ bash scripts/start-demo.sh     # starts IPFS and the API container, checks the F
 ## Testing
 
 ```bash
-# Unit tests (52; ML-DSA-44 and ML-KEM-768 need liboqs, which the image's builder stage has)
+# Unit tests (58 test functions; one skips without a live Fabric network. ML-DSA-44 and ML-KEM-768 need liboqs, which the image's builder stage has)
 docker build --target builder -f docker/Dockerfile -t qchain-api:test .
 docker run --rm qchain-api:test go test -count=1 ./...
 
